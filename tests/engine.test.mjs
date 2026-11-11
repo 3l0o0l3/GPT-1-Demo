@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {createLab} from '../dist/engine.js';
+const lab=createLab(), initial=lab.snapshot();
+const datasets=lab.diagnostics().data;
+assert.ok(datasets.classValidation.every(e=>!datasets.classTrain.some(t=>t.text===e.text)&&!datasets.lmTrain.some(t=>t.text===e.text)));
+assert.ok(datasets.lmValidation.every(e=>!datasets.lmTrain.some(t=>t.text===e.text)));
+const probe=lab.inspect();
+assert.ok(Math.abs(probe.probabilities.reduce((s,p)=>s+p.p,0)-1)<1e-12);
+assert.ok(probe.attention.every((row,i)=>row.every((v,j)=>j<=i||v===0)));
+const a=lab.diagnostics().prefixLogits('a cat is an animal .'),b=lab.diagnostics().prefixLogits('a cat is an animal grows');
+for(let i=0;i<5;i++)assert.deepEqual(a[i],b[i]);
+for(const task of ['lm','classify']){
+ const checks=lab.diagnostics().gradientCheck({task});
+ assert.ok(Math.max(...checks.map(x=>x.error))<2e-5,JSON.stringify(checks));
+ console.log(task,'gradient max error',Math.max(...checks.map(x=>x.error)));
+}
+assert.throws(()=>lab.inspect({text:'unknownword'}),/Unknown/);
+assert.throws(()=>lab.step({learningRate:-1}),/Learning rate/);
+assert.throws(()=>lab.restore({}),/checkpoint/);
+const trace=lab.step();lab.restore(initial);assert.deepEqual(trace,lab.step());
+lab.reset();const e0=lab.evaluate();const t=performance.now();
+for(let i=0;i<250;i++)lab.step();
+const e1=lab.evaluate();
+assert.ok(e1.trainLoss<e0.trainLoss*0.65,JSON.stringify({e0,e1}));
+assert.ok(e1.valLoss<e0.valLoss,JSON.stringify({e0,e1}));
+const pretrained=lab.snapshot(),c0=lab.evaluate({task:'classify'});
+for(let i=0;i<800;i++)lab.step({task:'classify',learningRate:0.01,lambda:0.1});
+const c1=lab.evaluate({task:'classify'});
+assert.ok(c1.accuracy>=0.8,JSON.stringify({c0,c1}));
+assert.ok(c1.trainLoss<c0.trainLoss,JSON.stringify({c0,c1}));
+const trained=lab.inspect({task:'classify',text:'i like the rose .'});assert.equal(trained.prediction,'plant');
+console.log(JSON.stringify({milliseconds:performance.now()-t,parameterCount:lab.metadata.parameterCount,e0,e1,c0,c1,probeProbability:lab.inspect().targetProbability,classification:{prediction:trained.prediction,probability:trained.targetProbability}},null,2));
+lab.restore(pretrained);assert.deepEqual(lab.evaluate(),e1);
+const stable=lab.snapshot();lab.evaluate();lab.inspect();assert.deepEqual(lab.snapshot(),stable);
+const bad=structuredClone(stable);bad.parameters.tokenEmbedding.v[0]=-1;assert.throws(()=>lab.restore(bad),/checkpoint/);
+console.log('All engine checks passed.');

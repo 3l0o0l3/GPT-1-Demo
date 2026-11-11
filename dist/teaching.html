@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive teaching demo of GPT-style learning: inspect one update, watch real training, and fine-tune a classifier.">
+  <meta name="theme-color" content="#00549f">
+  <title>GPT Learning Lab</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="vendor/katex.min.css">
+  <script defer src="vendor/katex.min.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the experiment</a>
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="GPT Learning Lab home"><span class="brand-mark" aria-hidden="true">g</span>GPT Learning Lab</a>
+    <a class="scope" href="./">← Local Qwen lab</a><span class="scope">Tiny model <span aria-hidden="true">·</span> Real training <span aria-hidden="true">·</span> Synthetic data</span>
+  </header>
+
+  <main id="main" class="page">
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">A GPT-1 seminar companion</p>
+        <h1 id="page-title">What changes when GPT learns?</h1>
+        <p class="intro-copy">Follow one prediction, watch the model learn, then give it a task.</p>
+      </div>
+      <p class="model-caption">A small, inspectable model.<br>Every probability and loss is computed.</p>
+    </section>
+
+    <nav class="lesson-tabs" aria-label="Learning experiments">
+      <button type="button" class="lesson-tab active" data-view="step" aria-controls="view-step" aria-pressed="true"><span class="tab-number">01</span><span>One update</span><span class="tab-hint">How learning happens</span></button>
+      <button type="button" class="lesson-tab" data-view="learn" aria-controls="view-learn" aria-pressed="false"><span class="tab-number">02</span><span>Learning curve</span><span class="tab-hint">What changes over time</span></button>
+      <button type="button" class="lesson-tab" data-view="task" aria-controls="view-task" aria-pressed="false"><span class="tab-number">03</span><span>Use the model</span><span class="tab-hint">From text to a decision</span></button>
+    </nav>
+
+    <div id="app-status" class="app-status" role="status" aria-live="polite">Preparing the model…</div>
+
+    <section id="view-step" class="lesson-view" aria-labelledby="step-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">Inspect a real training step</p><h2 id="step-title">A mistake becomes a learning signal.</h2></div>
+        <p class="section-note">Follow the same example<br>through five stages.</p>
+      </div>
+
+      <div class="stage-rail" aria-label="Training stages">
+        <button type="button" class="stage-button active" data-stage="0" aria-pressed="true"><span>1</span>Predict</button>
+        <button type="button" class="stage-button" data-stage="1" aria-pressed="false"><span>2</span>Measure loss</button>
+        <button type="button" class="stage-button" data-stage="2" aria-pressed="false"><span>3</span>Find gradients</button>
+        <button type="button" class="stage-button" data-stage="3" aria-pressed="false"><span>4</span>Update weights</button>
+        <button type="button" class="stage-button" data-stage="4" aria-pressed="false"><span>5</span>Compare</button>
+      </div>
+
+      <div class="step-layout">
+        <aside class="lesson-guide">
+          <p class="small-label">The training example</p>
+          <div id="step-sample" class="example-text" aria-live="polite">Loading an example…</div>
+          <div id="step-tokens" class="token-strip" aria-label="Input tokens"></div>
+          <div class="guide-rule"></div>
+          <div id="step-explanation" class="explanation">The model assigns a probability to each possible next word. Training uses the word that actually follows in the text.</div>
+          <div class="lesson-actions">
+            <button id="next-stage" type="button" class="button primary">Next: measure loss <span aria-hidden="true">→</span></button>
+            <button id="new-step" type="button" class="button secondary">Another training step</button>
+          </div>
+          <p class="small-note">A single update may help some predictions more than others. Watch the longer trend in experiment 02.</p>
+        </aside>
+
+        <div class="step-visual">
+          <div class="visual-heading"><h3>Next-word probabilities</h3><span id="step-scale" class="small-label">Probability</span></div>
+          <div id="step-probs" class="probability-chart" aria-label="Predicted next-word probabilities"></div>
+          <div class="equation-area">
+            <p class="small-label">The operation</p>
+            <div id="step-formula" class="formula" aria-live="polite"></div>
+          </div>
+          <div id="step-detail" class="step-detail" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-learn" class="lesson-view" aria-labelledby="learn-title" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">Repeat the update</p><h2 id="learn-title">Does the model learn beyond its examples?</h2></div>
+        <p class="section-note">Change the learning rate.<br>Compare the two curves.</p>
+      </div>
+      <div class="training-controls">
+        <div class="control-actions"><button id="train-toggle" class="button primary" type="button">Start training <span aria-hidden="true">▶</span></button><button id="train-100" class="button secondary" type="button">Train 100 steps</button></div>
+        <label class="field compact" for="lr-select"><span>Learning rate</span><select id="lr-select"><option value="0.001">0.001 · small steps</option><option value="0.01" selected>0.01 · medium steps</option><option value="0.05">0.05 · large steps</option></select></label>
+        <button id="reset-model" class="button quiet" type="button">Reset model</button>
+      </div>
+      <div class="metrics-row" aria-live="polite">
+        <div><span class="small-label">Updates completed</span><strong id="step-count">—</strong></div>
+        <div><span class="small-label"><i class="legend-dot training" aria-hidden="true"></i>Training loss</span><strong id="train-loss">—</strong></div>
+        <div><span class="small-label"><i class="legend-dot validation" aria-hidden="true"></i>Validation loss</span><strong id="val-loss">—</strong></div>
+      </div>
+      <div class="learning-layout">
+        <div class="curve-region">
+          <div class="visual-heading"><h3>Loss over training</h3><span class="small-label">Lower is better</span></div>
+          <svg id="loss-chart" role="img" aria-label="Training and validation loss versus training updates" viewBox="0 0 700 320"><title>Training and validation loss</title><text x="350" y="160" text-anchor="middle" class="empty-chart-label">Train the model to build the curve.</text></svg>
+          <p class="chart-note"><span><i class="legend-dot training" aria-hidden="true"></i><b>Training:</b> examples used to update weights.</span><span><i class="legend-dot validation" aria-hidden="true"></i><b>Validation:</b> held-out examples.</span></p>
+        </div>
+        <aside class="probe-region">
+          <h3>Keep one prediction in view</h3>
+          <label class="field" for="probe-select"><span>What comes next?</span><select id="probe-select"><option value="a cat is an">a cat is an …</option><option value="a rose is a">a rose is a …</option><option value="a car is a">a car is a …</option></select></label>
+          <div id="probe-probs" class="probability-chart compact-probs" aria-label="Probe next-word probabilities"></div>
+          <p class="small-note">The input stays the same; the model's weights change.</p>
+        </aside>
+      </div>
+      <p id="learn-status" class="lesson-status" role="status">Loss can fluctuate between updates. A falling training loss alone does not establish generalization.</p>
+    </section>
+
+    <section id="view-task" class="lesson-view" aria-labelledby="task-title" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">Adapt the representation</p><h2 id="task-title">Can the same model make a decision?</h2></div>
+        <p class="section-note">A small classification task:<br>animal, plant, or vehicle.</p>
+      </div>
+      <div class="task-layout">
+        <div class="task-training">
+          <p class="step-kicker">A · Fine-tune with labels</p>
+          <h3>Give the model a new objective.</h3>
+          <p class="body-copy">A classification head reads the final representation. Labeled examples train the head and adapt the Transformer.</p>
+          <div class="task-objective"><div id="task-formula" class="formula"></div><p class="small-note">The task loss teaches the category. The auxiliary language-model loss still predicts words.</p></div>
+          <label class="field" for="lambda-select"><span>Auxiliary LM weight · λ</span><select id="lambda-select"><option value="0">0 · task loss only</option><option value="0.1" selected>0.1 · small LM contribution</option><option value="0.5">0.5 · stronger LM contribution</option></select></label>
+          <button id="finetune-100" class="button primary" type="button">Fine-tune 800 steps <span aria-hidden="true">→</span></button>
+          <button id="restore-base" class="button secondary" type="button" disabled>Restore before fine-tuning</button>
+          <div class="task-metrics"><div><span class="small-label">Validation accuracy</span><strong id="task-accuracy">—</strong></div><div><span class="small-label">Validation task loss</span><strong id="task-loss">—</strong></div></div>
+          <p class="small-note">Pretraining and fine-tuning share this model. Reset in experiment 02 to compare starting from random weights.</p>
+        </div>
+        <div class="task-inference">
+          <p class="step-kicker">B · Try a prediction</p>
+          <h3>Which category does this sentence describe?</h3>
+          <label class="field" for="task-input"><span>Input sentence</span><input id="task-input" type="text" value="the cat sleeps ." maxlength="120" autocomplete="off" spellcheck="false"></label>
+          <button id="predict-task" class="button secondary" type="button">Predict category</button>
+          <div id="task-probs" class="probability-chart task-probabilities" aria-label="Category probabilities"></div>
+          <p class="small-note">This teaching vocabulary is deliberately small. The model does not understand arbitrary sentences.</p>
+        </div>
+      </div>
+      <p id="task-status" class="lesson-status" role="status">The classifier needs labeled training. Its initial scores are not meaningful task performance.</p>
+    </section>
+
+    <details class="model-notes">
+      <summary>What this demo represents <span aria-hidden="true">+</span></summary>
+      <div class="notes-content"><div><h3>A microscope for the method</h3><p>This is a small GPT-style teaching model trained on synthetic English sentences. It demonstrates causal language modeling and supervised transfer. It is not the original GPT-1 checkpoint or a reproduction of the paper's benchmark results.</p><p id="architecture">Model details will appear after initialization.</p></div><div><h3>Read the evidence carefully</h3><p>All displayed training values come from model computation. Loss is measured in natural-log units. Validation uses held-out examples; small synthetic datasets do not establish broad language understanding. Changing the auxiliary loss weight is an experiment, not a promise of improvement.</p></div></div>
+    </details>
+  </main>
+
+  <footer class="footer"><span>Learning by inspecting the computation.</span><div><a href="https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf" target="_blank" rel="noopener noreferrer">GPT-1 paper ↗</a><a href="https://github.com/BrendanJamesLynskey/transformer-explainer" target="_blank" rel="noopener noreferrer">Training explainer reference ↗</a><a href="https://github.com/dubzdubz/microgpt-ts" target="_blank" rel="noopener noreferrer">microGPT reference ↗</a></div></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
